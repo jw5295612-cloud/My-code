@@ -1,0 +1,121 @@
+# LocalScout configuration. Edit this file to steer the agent.
+
+# Who you are. Used in pitches, mockups and the legally required email footer.
+sender:
+  name: "Your Name"
+  business: "Your Studio"
+  email: "you@example.com"            # also sent as the contact in API User-Agent headers
+  website: "https://example.com"
+  portfolio: "https://example.com/portfolio"
+  postal_address: "Your business address, City, Country"  # required by CAN-SPAM for cold email
+  bio: >-
+    Freelance designer and writer. I build websites, design logos, banners and
+    book covers, and edit, format and write books and business proposals.
+
+# What you sell. Keywords are used to match public "hiring" posts to your services.
+services:
+  website:
+    label: "Website design & development"
+    keywords: ["website", "web design", "web developer", "landing page", "wordpress", "shopify", "wix", "webflow", "squarespace"]
+  logo:
+    label: "Logo & brand identity"
+    keywords: ["logo", "branding", "brand identity", "brand kit"]
+  graphics:
+    label: "Banners, flyers & social media graphics"
+    keywords: ["banner", "flyer", "poster", "social media graphics", "thumbnail", "infographic", "graphic designer", "graphic design"]
+  book_cover:
+    label: "Book cover design"
+    keywords: ["book cover", "cover design", "ebook cover", "cover artist", "cover for my"]
+  book_editing:
+    label: "Book editing & proofreading"
+    keywords: ["editor", "editing", "proofread", "copyedit", "line edit", "manuscript"]
+  book_formatting:
+    label: "Book formatting for print & ebook"
+    keywords: ["formatting", "format my book", "kdp", "typesetting", "interior layout", "epub"]
+  ghostwriting:
+    label: "Book writing & ghostwriting"
+    keywords: ["ghostwriter", "ghostwriting", "ghost writer", "write my book", "book writer", "memoir"]
+  proposals:
+    label: "Business plans, proposals & grant writing"
+    keywords: ["business plan", "grant writing", "grant application", "project proposal", "pitch deck", "proposal writer"]
+
+# --- Scout 1: local businesses with weak websites (your customers) -------------
+local:
+  enabled: true
+  offer: ["website", "logo", "graphics"]   # services pitched to local businesses
+  cities_per_run: 2
+  # Cities anywhere in the world. Put your own city first.
+  cities:
+    - "Your City, Your Country"
+    - "Austin, USA"
+    - "Manchester, United Kingdom"
+    - "Toronto, Canada"
+    - "Lagos, Nigeria"
+    - "Dubai, United Arab Emirates"
+    - "Sydney, Australia"
+    - "Dublin, Ireland"
+  # Each run takes the next niche in this list (and the next cities).
+  niches:
+    - name: "realtors"
+      osm_tags: [["office", "estate_agent"], ["shop", "estate_agent"]]
+      google_query: "real estate agency"
+      headline: "Find your next home in {city}"
+      cards: [["Buy", "Browse homes for sale across {city}."], ["Rent", "Apartments and houses to let."], ["Sell", "Get a free valuation of your property."]]
+    - name: "dental clinics"
+      osm_tags: [["amenity", "dentist"]]
+      google_query: "dental clinic"
+      headline: "Healthy smiles in {city}"
+      cards: [["Check-ups", "Gentle exams and cleaning for the whole family."], ["Cosmetic", "Whitening, veneers and smile makeovers."], ["Emergencies", "Same-day appointments when it hurts."]]
+    - name: "beauty salons"
+      osm_tags: [["shop", "beauty"], ["shop", "hairdresser"]]
+      google_query: "beauty salon"
+      headline: "Look and feel your best in {city}"
+      cards: [["Hair", "Cuts, colour and styling."], ["Beauty", "Nails, lashes, brows and skincare."], ["Book online", "Pick a time that suits you."]]
+    - name: "restaurants"
+      osm_tags: [["amenity", "restaurant"]]
+      google_query: "restaurant"
+      headline: "Great food in the heart of {city}"
+      cards: [["Menu", "Fresh dishes made to order."], ["Reservations", "Book your table in seconds."], ["Events", "Private dining and catering."]]
+    - name: "gyms"
+      osm_tags: [["leisure", "fitness_centre"]]
+      google_query: "gym"
+      headline: "Get stronger in {city}"
+      cards: [["Memberships", "Flexible plans, no long contracts."], ["Classes", "HIIT, yoga, spin and more."], ["Personal training", "Coaching built around your goals."]]
+    - name: "law firms"
+      osm_tags: [["office", "lawyer"]]
+      google_query: "law firm"
+      headline: "Trusted legal advice in {city}"
+      cards: [["Practice areas", "Property, family, business and more."], ["Free consultation", "Talk to a lawyer about your case."], ["Experience", "Local knowledge you can rely on."]]
+    - name: "auto repair shops"
+      osm_tags: [["shop", "car_repair"]]
+      google_query: "auto repair shop"
+      headline: "Honest car repairs in {city}"
+      cards: [["Servicing", "Keep your car running smoothly."], ["Repairs", "Brakes, engines, electrics and more."], ["Get a quote", "Clear prices before we start."]]
+
+# --- Scout 2: people publicly asking for your services -----------------------
+gigs:
+  enabled: true
+  subreddits: ["forhire", "DesignJobs", "HungryArtists", "HireAWriter", "freelance_forhire", "selfpublish", "slavelabour"]
+  hacker_news: true          # monthly "Freelancer? Seeking freelancer?" thread
+  rss_feeds: []              # add any job-board RSS feed URLs here
+  max_age_hours: 48
+  # Posts containing these are skipped. Writing a student's assignment for them
+  # to submit as their own is academic fraud; keep to editing, formatting and
+  # business/NGO proposals instead.
+  exclude_keywords: ["[for hire]", "for hire", "homework", "assignment", "exam", "quiz", "take my class", "essay due", "dissertation for me", "thesis for me"]
+
+limits:
+  max_new_leads_per_city: 40   # local businesses audited per city per run
+  leads_in_daily_review: 10    # top local leads sent to you for review
+  gigs_in_daily_review: 10     # top gigs sent to you for review
+  max_emails_per_day: 15       # keeps your sender reputation safe
+  min_score_for_review: 30
+
+pitch:
+  model: "claude-opus-5-5"     # change to "claude-haiku-5-5" to cut cost further
+  effort: "low"
+  language: "English"
+
+# Where mockups are published. With GitHub Pages serving /docs this is
+# https://<github-username>.github.io/<repo-name>/mockups/
+mockup_base_url: "https://jw5295612-cloud.github.io/My-code/mockups/"

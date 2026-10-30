@@ -1,0 +1,62 @@
+name: Daily scout
+
+on:
+  schedule:
+    - cron: "17 6 * * *"  # every day, 06:17 UTC
+  workflow_dispatch:
+    inputs:
+      city:
+        description: "Scout this city instead of the rotation (optional)"
+        required: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: localscout-data
+  cancel-in-progress: false
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Scout, audit, pitch
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          CITY: ${{ inputs.city }}
+        run: |
+          if [ -n "$CITY" ]; then
+            python -m localscout run --city "$CITY"
+          else
+            python -m localscout run
+          fi
+
+      - name: Commit results
+        run: |
+          git config user.name "localscout-bot"
+          git config user.email "localscout-bot@users.noreply.github.com"
+          git add data docs reports
+          git diff --cached --quiet || git commit -m "Scout run $(date -u +%F)"
+          git push
+
+      - name: Open review issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REPORT="reports/$(date -u +%F).md"
+          [ -f "$REPORT" ] || { echo "No report today"; exit 0; }
+          gh label create leads-review --color 0E8A16 --description "Daily LocalScout review" 2>/dev/null || true
+          gh issue create \
+            --title "Leads to review: $(date -u +%F)" \
+            --body-file "$REPORT" \
+            --label leads-review \
+            --assignee "${{ github.repository_owner }}"

@@ -1,0 +1,46 @@
+# LocalScout configuration. Edit this file to steer the agent.
+
+# Who you are. Used in pitches, mockups and the legally required email footer.
+sender:
+  name: "Your Name"
+  business: "Your Studio"
+  email: "you@example.com"            # also sent as the contact in API User-Agent headers
+  website: "https://example.com"
+  postal_address: "Your business address, City, Country"  # required by CAN-SPAM for cold email
+
+# What kind of business to hunt for.
+niche:
+  name: "realtors"
+  osm_tags:                           # OpenStreetMap tags (free, worldwide)
+    - ["office", "estate_agent"]
+    - ["shop", "estate_agent"]
+  google_query: "real estate agency"  # used only if GOOGLE_PLACES_API_KEY is set
+  services_offered: "a modern, mobile-friendly website with property listings and a lead-capture form"
+
+# Cities to scout, anywhere in the world. Put your own city first.
+# Each run takes the next `cities_per_run` cities in rotation.
+cities:
+  - "Your City, Your Country"
+  - "Austin, USA"
+  - "Manchester, United Kingdom"
+  - "Toronto, Canada"
+  - "Lagos, Nigeria"
+  - "Dubai, United Arab Emirates"
+  - "Sydney, Australia"
+  - "Dublin, Ireland"
+cities_per_run: 2
+
+limits:
+  max_new_leads_per_city: 40   # leads audited per city per run
+  leads_in_daily_review: 12    # top-scoring leads sent to you for review
+  max_emails_per_day: 15       # keeps your sender reputation safe
+  min_score_for_review: 30
+
+pitch:
+  model: "claude-opus-5-5"     # change to "claude-haiku-5-5" to cut cost further
+  effort: "low"
+  language: "English"
+
+# Where mockups are published. With GitHub Pages serving /docs this is
+# https://<github-username>.github.io/<repo-name>/mockups/
+mockup_base_url: "https://jw5295612-cloud.github.io/My-code/mockups/"

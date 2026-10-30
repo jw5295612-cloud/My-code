@@ -1,10 +1,12 @@
+import time
 from datetime import date
 
 from localscout import review
 from localscout.audit import analyze_html
-from localscout.cli import next_cities
+from localscout.cli import next_cities, next_niche
+from localscout.gigs import match_services, parse_hn_thread, parse_reddit_listing, score_gig
 from localscout.config import load_config
-from localscout.pitch import template_pitch
+from localscout.pitch import template_gig_reply, template_pitch
 from localscout.scoring import score
 from localscout.sources.osm import build_query, element_to_business
 
@@ -22,6 +24,8 @@ def make_lead(**overrides):
         "id": "osm:node/1",
         "name": "Acme Homes",
         "city": "Austin, USA",
+        "niche": "realtors",
+        "kind": "local",
         "phone": "+1 512 555 0100",
         "email": "",
         "website": "",
@@ -70,21 +74,68 @@ def test_osm_element_parsing_and_query():
     assert 'nwr["office"="estate_agent"](1,2,3,4);' in q
 
 
-def test_report_roundtrip_approves_only_ticked_leads():
+def make_gig(title, text="", hours_old=1):
+    return {
+        "id": f"gig:reddit/{abs(hash(title))}",
+        "kind": "gig",
+        "title": title,
+        "text": text,
+        "url": "https://www.reddit.com/r/forhire/x",
+        "author": "u/someone in r/forhire",
+        "posted_at": time.time() - hours_old * 3600,
+    }
+
+
+def test_gig_matching_and_exclusions():
+    assert match_services(make_gig("[Hiring] Need a logo and website for my bakery"), CFG) == ["website", "logo"]
+    assert match_services(make_gig("Looking for an editor for my fantasy manuscript"), CFG) == ["book_editing"]
+    assert "book_formatting" in match_services(make_gig("Need KDP formatting for my novel"), CFG)
+    assert match_services(make_gig("[For Hire] Logo designer available"), CFG) == []
+    assert match_services(make_gig("Someone to do my homework essay"), CFG) == []
+
+
+def test_gig_scoring_prefers_fresh_paid_posts():
+    fresh = make_gig("[Hiring] logo", hours_old=1)
+    old = make_gig("[Hiring] logo", hours_old=40)
+    for g in (fresh, old):
+        g["services"], g["budget"] = ["logo"], "$200"
+    assert score_gig(fresh, CFG) > score_gig(old, CFG)
+
+
+def test_source_parsers():
+    listing = {"data": {"children": [{"data": {"id": "abc", "title": "[Hiring] Book cover",
+               "selftext": "fantasy", "permalink": "/r/HungryArtists/abc/", "created_utc": 1700000000,
+               "author": "writer1"}}]}}
+    gig = parse_reddit_listing(listing, "HungryArtists")[0]
+    assert gig["id"] == "gig:reddit/abc" and gig["url"].endswith("/r/HungryArtists/abc/")
+    thread = {"children": [
+        {"id": 1, "text": "SEEKING FREELANCER | Remote<p>Need a Webflow website", "created_at_i": 1, "author": "a"},
+        {"id": 2, "text": "SEEKING WORK | me", "created_at_i": 1, "author": "b"},
+    ]}
+    assert [g["id"] for g in parse_hn_thread(thread)] == ["gig:hn/1"]
+
+
+def test_report_roundtrip_approves_only_ticked_items():
     leads = []
     for i in range(2):
         lead = make_lead(id=f"osm:node/{i}", name=f"Agency {i}", score=70)
         lead["pitch"] = template_pitch(lead, CFG).model_dump()
         lead["pitch_generator"] = "template"
         leads.append(lead)
-    body = review.build_report(leads, {"found": 5, "new": 2, "cities": ["Austin, USA"]})
-    ticked = body.replace("- [ ] **Agency 1**", "- [x] **Agency 1**")
+    gig = make_gig("[Hiring] Logo | for my *bakery*")
+    gig.update(services=["logo"], budget=None, score=60)
+    gig["pitch"], gig["pitch_generator"] = template_gig_reply(gig, CFG).model_dump(), "template"
+    stats = {"found": 5, "new": 2, "gigs": 1, "cities": ["Austin, USA"], "niche": "realtors"}
+    body = review.build_report(leads, [gig], stats, CFG)
+    assert "- [ ] **Hiring  Logo   for my  bakery**" in body  # markdown-breaking chars stripped
+    ticked = body.replace("- [ ] **Agency 1**", "- [x] **Agency 1**").replace("- [ ] **Hiring", "- [x] **Hiring")
     assert review.checked_lead_ids(body) == []
-    assert review.checked_lead_ids(ticked) == ["osm:node/1"]
+    assert review.checked_lead_ids(ticked) == ["osm:node/1", gig["id"]]
 
 
-def test_city_rotation_wraps():
-    cfg = {"cities": ["A", "B", "C"], "cities_per_run": 2}
-    state = {"city_cursor": 0}
-    assert next_cities(cfg, state) == ["A", "B"]
-    assert next_cities(cfg, state) == ["C", "A"]
+def test_rotation_wraps():
+    local = {"cities": ["A", "B", "C"], "cities_per_run": 2, "niches": [{"name": "x"}, {"name": "y"}]}
+    state = {}
+    assert next_cities(local, state) == ["A", "B"]
+    assert next_cities(local, state) == ["C", "A"]
+    assert [next_niche(local, state)["name"] for _ in range(3)] == ["x", "y", "x"]

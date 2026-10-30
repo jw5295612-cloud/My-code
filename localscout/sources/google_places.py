@@ -23,10 +23,10 @@ FIELDS = ",".join(
 )
 
 
-def search(city: str, cfg: dict) -> list[dict]:
+def search(city: str, niche: dict) -> list[dict]:
     resp = requests.post(
         SEARCH_URL,
-        json={"textQuery": f"{cfg['niche']['google_query']} in {city}"},
+        json={"textQuery": f"{niche['google_query']} in {city}"},
         headers={
             "X-Goog-Api-Key": os.environ["GOOGLE_PLACES_API_KEY"],
             "X-Goog-FieldMask": FIELDS,

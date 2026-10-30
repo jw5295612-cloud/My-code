@@ -45,6 +45,13 @@ def send_approved(leads: dict, state: dict, suppressed: set[str], cfg: dict) -> 
     for lead in leads.values():
         if lead.get("status") != "approved":
             continue
+        if lead.get("kind") == "gig":
+            # Gigs are answered on the site they were posted on, by you.
+            if not lead.get("in_outbox"):
+                lead["in_outbox"] = today
+                outbox_entries.append(lead)
+                summary["outbox"].append(lead["title"])
+            continue
         email = (lead.get("email") or "").lower()
         if email and email in suppressed:
             set_status(lead, "suppressed")
@@ -72,6 +79,14 @@ def _append_outbox(leads: list[dict], today: str) -> None:
     path = OUTBOX_DIR / f"{today}.md"
     parts = [] if path.exists() else [f"# Outbox {today}: contact these yourself\n"]
     for lead in leads:
+        if lead.get("kind") == "gig":
+            parts.append(
+                f"## Gig: {lead['title']}\n"
+                f"Reply here: {lead['url']}\n\n"
+                f"**Message:**\n```\n{lead['pitch']['body']}\n```\n"
+                f"After replying, run: `python -m localscout mark {lead['id']} sent`\n"
+            )
+            continue
         phone = lead.get("phone") or "n/a"
         digits = "".join(c for c in phone if c.isdigit())
         whatsapp = f" · [WhatsApp](https://wa.me/{digits})" if phone.strip().startswith("+") else ""

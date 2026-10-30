@@ -8,6 +8,9 @@ on:
       city:
         description: "Scout this city instead of the rotation (optional)"
         required: false
+      niche:
+        description: "Scout this niche, e.g. dental clinics (optional)"
+        required: false
 
 permissions:
   contents: write
@@ -32,13 +35,15 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           CITY: ${{ inputs.city }}
+          NICHE: ${{ inputs.niche }}
         run: |
-          if [ -n "$CITY" ]; then
-            python -m localscout run --city "$CITY"
-          else
-            python -m localscout run
-          fi
+          args=()
+          [ -n "$CITY" ] && args+=(--city "$CITY")
+          [ -n "$NICHE" ] && args+=(--niche "$NICHE")
+          python -m localscout run "${args[@]}"
 
       - name: Commit results
         run: |
@@ -56,7 +61,7 @@ jobs:
           [ -f "$REPORT" ] || { echo "No report today"; exit 0; }
           gh label create leads-review --color 0E8A16 --description "Daily LocalScout review" 2>/dev/null || true
           gh issue create \
-            --title "Leads to review: $(date -u +%F)" \
+            --title "Leads and gigs to review: $(date -u +%F)" \
             --body-file "$REPORT" \
             --label leads-review \
             --assignee "${{ github.repository_owner }}"

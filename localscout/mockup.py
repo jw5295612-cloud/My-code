@@ -32,8 +32,6 @@ TEMPLATE = """<!doctype html>
   .hero {{ padding: 90px 6vw 70px; background: linear-gradient(135deg, var(--primary), #000a); color: #fff; }}
   .hero h1 {{ font-size: clamp(2rem, 5vw, 3.4rem); max-width: 16ch; line-height: 1.1; }}
   .hero p {{ margin: 18px 0 30px; max-width: 48ch; opacity: .9; font-size: 1.1rem; }}
-  .search {{ display: flex; flex-wrap: wrap; gap: 10px; background: #fff; padding: 10px; border-radius: 12px; max-width: 640px; }}
-  .search input, .search select {{ flex: 1 1 150px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }}
   .btn {{ background: var(--accent); color: #111; border: 0; padding: 12px 22px; border-radius: 8px; font-weight: 700; font-size: 1rem; text-decoration: none; display: inline-block; }}
   section {{ padding: 64px 6vw; }}
   h2 {{ font-size: 1.8rem; margin-bottom: 26px; }}
@@ -41,7 +39,7 @@ TEMPLATE = """<!doctype html>
   .card {{ background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px #0001; }}
   .card .img {{ height: 160px; background: linear-gradient(120deg, var(--primary), var(--accent)); opacity: .85; }}
   .card div.body {{ padding: 16px; }}
-  .price {{ font-weight: 800; color: var(--primary); }}
+  .card h3 {{ color: var(--primary); margin-bottom: 4px; }}
   .why .grid div {{ background: #fff; padding: 22px; border-radius: 14px; border-top: 4px solid var(--accent); }}
   .cta {{ text-align: center; background: var(--primary); color: #fff; }}
   .cta p {{ margin: 0 auto 26px; max-width: 46ch; opacity: .9; }}
@@ -52,39 +50,33 @@ TEMPLATE = """<!doctype html>
 <body>
 <header>
   <div class="logo">{logo_main}<span>{logo_tail}</span></div>
-  <nav><a href="#listings">Buy</a><a href="#listings">Rent</a><a href="#why">Sell</a><a href="#contact">Contact</a></nav>
+  <nav>{nav}<a href="#contact">Contact</a></nav>
 </header>
 <div class="hero">
-  <h1>Find your next home in {city_short}</h1>
-  <p>{name} helps buyers, sellers and renters move with confidence, with local knowledge and honest advice.</p>
-  <form class="search" onsubmit="return false">
-    <input placeholder="Area or neighbourhood">
-    <select><option>Buy</option><option>Rent</option></select>
-    <button class="btn">Search homes</button>
-  </form>
+  <h1>{headline}</h1>
+  <p>{name} is proud to serve {city_short} with friendly, professional service you can count on.</p>
+  <a class="btn" href="{contact_href}">{contact_label}</a>
 </div>
-<section id="listings">
-  <h2>Featured properties</h2>
+<section id="services">
+  <h2>What we offer</h2>
   <div class="grid">
-    <div class="card"><div class="img"></div><div class="body"><p class="price">Featured listing</p><p>3 bed family home &middot; {city_short}</p></div></div>
-    <div class="card"><div class="img"></div><div class="body"><p class="price">New this week</p><p>2 bed apartment &middot; City centre</p></div></div>
-    <div class="card"><div class="img"></div><div class="body"><p class="price">For rent</p><p>Modern studio &middot; Close to transport</p></div></div>
+{cards}
   </div>
 </section>
 <section class="why" id="why">
-  <h2>Why work with {name}</h2>
+  <h2>Why choose {name}</h2>
   <div class="grid">
-    <div><h3>Local experts</h3><p>We know {city_short} street by street.</p></div>
-    <div><h3>Free valuation</h3><p>Find out what your property is worth today.</p></div>
-    <div><h3>Fast replies</h3><p>Enquire online and hear back the same day.</p></div>
+    <div><h3>Local and trusted</h3><p>Part of the {city_short} community.</p></div>
+    <div><h3>Easy to reach</h3><p>Call, message or enquire online.</p></div>
+    <div><h3>Fast replies</h3><p>We get back to you the same day.</p></div>
   </div>
 </section>
 <section class="cta" id="contact">
-  <h2>Thinking of buying or selling?</h2>
-  <p>Book a free, no-obligation chat with our team.</p>
+  <h2>Ready when you are</h2>
+  <p>Get in touch today and we'll take care of the rest.</p>
   <a class="btn" href="{contact_href}">{contact_label}</a>
 </section>
-<footer>Concept homepage prepared for {name} by {sender_business}. Not affiliated with or endorsed by {name}. Listings shown are placeholders.</footer>
+<footer>Concept homepage prepared for {name} by {sender_business}. Not affiliated with or endorsed by {name}. Content shown is placeholder text.</footer>
 </body>
 </html>
 """
@@ -99,22 +91,31 @@ def mockup_slug(lead: dict) -> str:
     return f"{slugify(lead['name'])}-{digest}"
 
 
-def build_mockup(lead: dict, cfg: dict) -> str:
+def build_mockup(lead: dict, cfg: dict, niche: dict | None = None) -> str:
     """Write the mockup HTML and return its public URL."""
     slug = mockup_slug(lead)
     primary, accent, bg = PALETTES[int(hashlib.sha1(slug.encode()).hexdigest(), 16) % len(PALETTES)]
     words = lead["name"].split()
     e = html.escape
+    city_short = lead["city"].split(",")[0]
+    niche = niche or {}
+    cards = niche.get("cards") or [["Services", "Quality work at fair prices."], ["Experience", "Years of local know-how."], ["Contact", "Get a free quote today."]]
     page = TEMPLATE.format(
         name=e(lead["name"]),
         logo_main=e(" ".join(words[:-1]) + " " if len(words) > 1 else ""),
         logo_tail=e(words[-1]),
-        city_short=e(lead["city"].split(",")[0]),
+        city_short=e(city_short),
+        headline=e(niche.get("headline", "Welcome to {city}").format(city=city_short)),
+        nav="".join(f'<a href="#services">{e(t)}</a>' for t, _ in cards),
+        cards="\n".join(
+            f'    <div class="card"><div class="img"></div><div class="body"><h3>{e(t)}</h3><p>{e(d.format(city=city_short))}</p></div></div>'
+            for t, d in cards
+        ),
         primary=primary,
         accent=accent,
         bg=bg,
         contact_href=e(f"tel:{lead['phone']}" if lead.get("phone") else "#contact"),
-        contact_label="Call us today" if lead.get("phone") else "Book a free chat",
+        contact_label="Call us today" if lead.get("phone") else "Get in touch",
         sender_business=e(cfg["sender"]["business"]),
     )
     MOCKUP_DIR.mkdir(parents=True, exist_ok=True)

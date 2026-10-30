@@ -54,14 +54,14 @@ def element_to_business(el: dict, city: str) -> dict | None:
     }
 
 
-def search(city: str, cfg: dict) -> list[dict]:
+def search(city: str, niche: dict, cfg: dict) -> list[dict]:
     bbox = geocode_bbox(city, cfg)
     if not bbox:
         print(f"  [osm] could not geocode {city!r}")
         return []
     resp = requests.post(
         OVERPASS_URL,
-        data={"data": build_query(bbox, cfg["niche"]["osm_tags"])},
+        data={"data": build_query(bbox, niche["osm_tags"])},
         headers={"User-Agent": user_agent(cfg)},
         timeout=120,
     )

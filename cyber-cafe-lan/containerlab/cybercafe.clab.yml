@@ -1,0 +1,67 @@
+# Cyber cafe LAN: 4 PCs, 2 printers, 2 CCTV cameras
+#   docker build -t cybercafe-node:1.0 image/
+#   sudo containerlab deploy -t cybercafe.clab.yml
+#   ./verify.sh
+name: cybercafe
+
+topology:
+  defaults:
+    kind: linux
+    image: cybercafe-node:1.0
+
+  nodes:
+    # Simulated Internet provider + public web/DNS server (198.51.100.10)
+    isp:
+      binds: [configs/isp.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh]
+
+    # Edge router: VLAN subinterfaces, DHCP, NAT, firewall (ACL equivalent)
+    r1:
+      binds: [configs/r1.sh:/lab/start.sh:ro]
+      sysctls:
+        net.ipv4.ip_forward: 1
+      exec: [bash /lab/start.sh]
+
+    # Access switch: VLAN-aware Linux bridge (10 PCs, 20 printers, 30 CCTV, 99 mgmt)
+    sw1:
+      binds: [configs/sw1.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh]
+
+    pc1-admin:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh static 192.168.10.10/24 192.168.10.1]
+    pc2:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh dhcp]
+    pc3:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh dhcp]
+    pc4:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh dhcp]
+
+    printer1:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh static 192.168.20.10/24 192.168.20.1 printer]
+    printer2:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh static 192.168.20.11/24 192.168.20.1 printer]
+
+    cam1:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh static 192.168.30.10/24 192.168.30.1 camera]
+    cam2:
+      binds: [configs/host.sh:/lab/start.sh:ro]
+      exec: [bash /lab/start.sh static 192.168.30.11/24 192.168.30.1 camera]
+
+  links:
+    - endpoints: ["r1:eth1", "sw1:eth1"]        # 802.1Q trunk
+    - endpoints: ["r1:eth2", "isp:eth1"]        # WAN
+    - endpoints: ["pc1-admin:eth1", "sw1:eth2"]  # VLAN 10
+    - endpoints: ["pc2:eth1", "sw1:eth3"]        # VLAN 10
+    - endpoints: ["pc3:eth1", "sw1:eth4"]        # VLAN 10
+    - endpoints: ["pc4:eth1", "sw1:eth5"]        # VLAN 10
+    - endpoints: ["printer1:eth1", "sw1:eth6"]   # VLAN 20
+    - endpoints: ["printer2:eth1", "sw1:eth7"]   # VLAN 20
+    - endpoints: ["cam1:eth1", "sw1:eth8"]       # VLAN 30
+    - endpoints: ["cam2:eth1", "sw1:eth9"]       # VLAN 30

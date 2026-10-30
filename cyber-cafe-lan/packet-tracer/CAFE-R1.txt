@@ -1,0 +1,123 @@
+! =====================================================================
+! CAFE-R1  -  Cisco 2911 edge router (router-on-a-stick + NAT + DHCP)
+! Paste in:  Router> enable  ->  Router# configure terminal
+! =====================================================================
+hostname CAFE-R1
+no ip domain-lookup
+service password-encryption
+enable secret Cafe@Enable1
+banner motd #Authorized access only - CyberCafe LAN#
+ip domain-name cybercafe.local
+username admin privilege 15 secret Cafe@Admin1
+!
+! ---------- DHCP for customer PCs (VLAN 10) ----------
+! .1-.10 reserved (gateway + admin/cashier PC on .10)
+ip dhcp excluded-address 192.168.10.1 192.168.10.10
+ip dhcp pool CUSTOMER-PCS
+ network 192.168.10.0 255.255.255.0
+ default-router 192.168.10.1
+ dns-server 198.51.100.10
+ domain-name cybercafe.local
+!
+! ---------- ACL: customer PCs (VLAN 10) ----------
+ip access-list extended PCS-IN
+ remark DHCP from clients to router
+ permit udp any eq bootpc any eq bootps
+ remark Admin/cashier PC may view CCTV and manage devices
+ permit ip host 192.168.10.10 192.168.30.0 0.0.0.255
+ permit ip host 192.168.10.10 192.168.99.0 0.0.0.255
+ remark Customers may never reach CCTV or management
+ deny   ip 192.168.10.0 0.0.0.255 192.168.30.0 0.0.0.255
+ deny   ip 192.168.10.0 0.0.0.255 192.168.99.0 0.0.0.255
+ remark Customers may print (RAW 9100, LPD 515, IPP 631) and ping printers
+ permit tcp 192.168.10.0 0.0.0.255 192.168.20.0 0.0.0.255 eq 9100
+ permit tcp 192.168.10.0 0.0.0.255 192.168.20.0 0.0.0.255 eq 515
+ permit tcp 192.168.10.0 0.0.0.255 192.168.20.0 0.0.0.255 eq 631
+ permit icmp 192.168.10.0 0.0.0.255 192.168.20.0 0.0.0.255
+ deny   ip any 192.168.20.0 0.0.0.255
+ remark Everything else (Internet)
+ permit ip 192.168.10.0 0.0.0.255 any
+!
+! ---------- ACL: printers (VLAN 20) - LAN only, no Internet ----------
+ip access-list extended PRINTERS-IN
+ permit ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255
+ permit ip 192.168.20.0 0.0.0.255 192.168.99.0 0.0.0.255
+ permit icmp any any echo-reply
+ deny   ip any any
+!
+! ---------- ACL: CCTV cameras (VLAN 30) - admin/mgmt only ----------
+ip access-list extended CCTV-IN
+ permit ip 192.168.30.0 0.0.0.255 host 192.168.10.10
+ permit ip 192.168.30.0 0.0.0.255 192.168.99.0 0.0.0.255
+ permit icmp any any echo-reply
+ deny   ip any any
+!
+! ---------- ACL: who may SSH into the router ----------
+ip access-list standard VTY-ALLOWED
+ permit host 192.168.10.10
+ permit 192.168.99.0 0.0.0.255
+!
+! ---------- NAT: only PCs + management get Internet ----------
+ip access-list standard NAT-INSIDE
+ permit 192.168.10.0 0.0.0.255
+ permit 192.168.99.0 0.0.0.255
+!
+! ---------- LAN trunk to CAFE-SW1 ----------
+interface GigabitEthernet0/0
+ description TRUNK to CAFE-SW1 G0/1
+ no ip address
+ no shutdown
+!
+interface GigabitEthernet0/0.10
+ description VLAN10 CUSTOMER-PCS
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+ ip access-group PCS-IN in
+ ip nat inside
+!
+interface GigabitEthernet0/0.20
+ description VLAN20 PRINTERS
+ encapsulation dot1Q 20
+ ip address 192.168.20.1 255.255.255.0
+ ip access-group PRINTERS-IN in
+!
+interface GigabitEthernet0/0.30
+ description VLAN30 CCTV
+ encapsulation dot1Q 30
+ ip address 192.168.30.1 255.255.255.0
+ ip access-group CCTV-IN in
+!
+interface GigabitEthernet0/0.99
+ description VLAN99 MANAGEMENT
+ encapsulation dot1Q 99
+ ip address 192.168.99.1 255.255.255.0
+ ip nat inside
+!
+interface GigabitEthernet0/0.999
+ description VLAN999 NATIVE (unused, black-hole)
+ encapsulation dot1Q 999 native
+!
+! ---------- WAN to ISP ----------
+interface GigabitEthernet0/1
+ description WAN to ISP
+ ip address 203.0.113.2 255.255.255.252
+ ip nat outside
+ no shutdown
+!
+ip nat inside source list NAT-INSIDE interface GigabitEthernet0/1 overload
+ip route 0.0.0.0 0.0.0.0 203.0.113.1
+!
+! ---------- Remote management (SSH only) ----------
+crypto key generate rsa general-keys modulus 1024
+ip ssh version 2
+line console 0
+ login local
+ exec-timeout 10 0
+line vty 0 4
+ login local
+ transport input ssh
+ access-class VTY-ALLOWED in
+ exec-timeout 10 0
+!
+end
+write memory

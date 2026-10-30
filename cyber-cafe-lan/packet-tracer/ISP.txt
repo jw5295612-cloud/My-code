@@ -1,0 +1,20 @@
+! =====================================================================
+! ISP  -  Cisco 2911 simulating the Internet provider (lab only)
+! =====================================================================
+hostname ISP
+no ip domain-lookup
+!
+interface GigabitEthernet0/0
+ description To CAFE-R1 G0/1 (customer WAN)
+ ip address 203.0.113.1 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/1
+ description "Internet" segment with INTERNET-SRV
+ ip address 198.51.100.1 255.255.255.0
+ no shutdown
+!
+! No route back to 192.168.x.x is needed: the cafe NATs everything
+! to 203.0.113.2, which is directly connected.
+end
+write memory
